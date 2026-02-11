@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>양들의 파이프 수리공 (Bible Pipe Repair)</title>
+    <meta name="description" content="성경 구절을 맞춰 파이프를 고치고 이리를 물리치세요!">
+    <meta name="theme-color" content="#87CEEB">
+    <style>
+        :root {
+            --primary-color: #4CAF50;
+            --secondary-color: #87CEEB;
+            --accent-color: #FF9800;
+            --text-color: #333;
+            --bg-color: #f0f8ff;
+            --pipe-color: #555;
+            --pipe-fixed: #2196F3;
+            --wolf-color: #5D4037;
+        }
+
+        * {
+            box-sizing: border-box;
+            touch-action: manipulation;
+            /* Prevent double-tap zoom */
+            user-select: none;
+            /* Prevent text selection */
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #game-container {
+            width: 100%;
+            max-width: 480px;
+            height: 100%;
+            background: white;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        /* Screens */
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            text-align: center;
+            padding: 20px;
+            transition: opacity 0.3s;
+        }
+
+        .hidden {
+            display: none !important;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        h1 {
+            color: var(--primary-color);
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        h2 {
+            color: #555;
+        }
+
+        p {
+            font-size: 1.1rem;
+            line-height: 1.5;
+        }
+
+        button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            transition: transform 0.1s;
+            margin: 10px;
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        button.emergency {
+            background: #f44336;
+            animation: pulse 1s infinite;
+        }
+
+        /* HUD */
+        #hud {
+            padding: 10px 15px;
+            background: var(--primary-color);
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: bold;
+            font-size: 1.1rem;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            z-index: 10;
+        }
+
+        /* Game Area */
+        #game-area {
+            flex: 1;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100" opacity="0.1"><path d="M10 10 L90 10 L90 90 L10 90 Z" fill="none" stroke="black"/></svg>');
+        }
+
+        /* Pipe Visuals */
+        #pipe-container {
+            height: 120px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            margin-bottom: 10px;
+        }
+
+        .pipe {
+            width: 60px;
+            height: 20px;
+            background: var(--pipe-color);
+            margin: 0 5px;
+            position: relative;
+            transition: background 1s;
+        }
+
+        .pipe::after {
+            content: '';
+            position: absolute;
+            top: -5px;
+            left: -5px;
+            right: -5px;
+            bottom: -5px;
+            border: 2px solid #ccc;
+            border-radius: 5px;
+            pointer-events: none;
+        }
+
+        .pipe.broken {
+            transform: rotate(15deg);
+            background: #888;
+        }
+
+        .pipe.fixed {
+            background: var(--pipe-fixed);
+            transform: rotate(0deg);
+        }
+
+        .water-drop {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: var(--pipe-fixed);
+            border-radius: 50%;
+            opacity: 0;
+        }
+
+        /* Verse Puzzle */
+        #verse-reference {
+            text-align: center;
+            font-weight: bold;
+            color: #555;
+            margin-bottom: 5px;
+            font-size: 1.2rem;
+        }
+
+        .word-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 15px;
+            min-height: 100px;
+            align-content: flex-start;
+            justify-content: center;
+            border-radius: 10px;
+            transition: background 0.3s;
+        }
+
+        #answer-area {
+            background: rgba(255, 235, 59, 0.2);
+            border: 2px dashed #aaa;
+            margin-bottom: 10px;
+            flex-grow: 1;
+            /* Take available space */
+            overflow-y: auto;
+        }
+
+        #answer-area.correct {
+            border-color: var(--primary-color);
+            background: rgba(76, 175, 80, 0.2);
+        }
+
+        #answer-area.wrong {
+            background: rgba(244, 67, 54, 0.1);
+        }
+
+        #word-bank {
+            background: #eee;
+            max-height: 40%;
+            overflow-y: auto;
+        }
+
+        .word-chip {
+            background: white;
+            border: 1px solid #ccc;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 1rem;
+            cursor: pointer;
+            box-shadow: 0 2px 2px rgba(0, 0, 0, 0.1);
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .word-chip:active {
+            background: #f0f0f0;
+            transform: scale(0.95);
+        }
+
+        /* Wolf Event */
+        #wolf-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 50;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+        }
+
+        .wolf-avatar {
+            font-size: 100px;
+            margin-bottom: 20px;
+            cursor: pointer;
+            filter: drop-shadow(0 0 10px red);
+            transition: transform 0.1s;
+        }
+
+        .wolf-avatar:active {
+            transform: scale(0.9);
+        }
+
+        .hp-bar-container {
+            width: 200px;
+            height: 20px;
+            background: #333;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 2px solid white;
+        }
+
+        .hp-bar-fill {
+            width: 100%;
+            height: 100%;
+            background: #f44336;
+            transition: width 0.1s;
+        }
+
+        .shake {
+            animation: shake 0.5s cubic-bezier(.36, .07, .19, .97) both infinite;
+        }
+
+        @keyframes shake {
+
+            10%,
+            90% {
+                transform: translate3d(-1px, 0, 0);
+            }
+
+            20%,
+            80% {
+                transform: translate3d(2px, 0, 0);
+            }
+
+            30%,
+            50%,
+            70% {
+                transform: translate3d(-4px, 0, 0);
+            }
+
+            40%,
+            60% {
+                transform: translate3d(4px, 0, 0);
+            }
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.05);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="game-container">
+        <!-- Start Screen -->
+        <div id="start-screen" class="screen">
+            <h1>양들의 수도꼭지를 고쳐주세요</h1>
+            <div style="font-size: 4rem; margin: 20px;">🐑🏠🔧</div>
+            <p>이리가 망가뜨린 수도관을 고쳐주세요!</p>
+            <p>말씀 조각을 순서대로 맞추면 수리됩니다.</p>
+            <p class="small" style="color:#666; margin-top:20px;">최고 기록: <span id="best-display">없음</span></p>
+            <button onclick="game.start()">게임 시작</button>
+        </div>
+
+        <!-- HUD -->
+        <div id="hud">
+            <span>LV <span id="level-num">1</span></span>
+            <span>⏳ <span id="time-display">60</span></span>
+            <span>⭐ <span id="score-display">0</span></span>
+        </div>
+
+        <!-- Game Area -->
+        <div id="game-area">
+            <div id="pipe-container">
+                <!-- Pipes will be generated here -->
+                <div class="pipe broken"></div>
+                <div class="pipe broken"></div>
+                <div class="pipe broken"></div>
+                <div style="font-size: 30px; position:absolute; right: 10px; top: -10px;">🏠</div>
+            </div>
+
+            <div id="verse-reference">창세기 1:1</div>
+
+            <div id="answer-area" class="word-container">
+                <span style="color:#aaa; width:100%; text-align:center; margin-top: 20px;">여기로 단어를 옮기세요</span>
+            </div>
+
+            <div id="word-bank" class="word-container">
+                <!-- Word chips here -->
+            </div>
+        </div>
+
+        <!-- Wolf Overlay -->
+        <div id="wolf-overlay" class="hidden">
+            <h2>⚠️ 이리가 나타났다! ⚠️</h2>
+            <p>탭해서 물리치세요!</p>
+            <div class="wolf-avatar" onclick="game.hitWolf()">🐺</div>
+            <div class="hp-bar-container">
+                <div id="wolf-hp" class="hp-bar-fill"></div>
+            </div>
+        </div>
+
+        <!-- Level Complete Screen -->
+        <div id="level-screen" class="screen hidden">
+            <h1>수리 완료!</h1>
+            <div style="font-size: 4rem; margin: 20px;">💧✨</div>
+            <p>파이프가 무사히 연결되었습니다.</p>
+            <p>점수 +<span id="level-score">100</span></p>
+            <button onclick="game.nextLevel()">다음 레벨</button>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div id="game-over-screen" class="screen hidden">
+            <h1>실패...</h1>
+            <div style="font-size: 4rem; margin: 20px;">🥀</div>
+            <p>시간이 다 되었습니다.</p>
+            <button onclick="game.retryLevel()">다시 시도</button>
+            <button onclick="showScreen('start-screen')" style="background:#555">홈으로</button>
+        </div>
+
+        <!-- Victory Screen -->
+        <div id="victory-screen" class="screen hidden">
+            <h1>축하합니다!</h1>
+            <div style="font-size: 4rem; margin: 20px;">🎉🐑🎉</div>
+            <p>모든 파이프를 고쳤습니다!</p>
+            <h2 id="final-score">총점: 0</h2>
+            <button onclick="game.resetGame()">다시 하기</button>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * Bible Verse Data (Korean Revised Version)
+         */
+        const VERSES = [
+            { ref: "창세기 1:1", text: "태초에 하나님이 천지를 창조하시니라" },
+            { ref: "시편 27:4", text: "내가 여호와께 바라는 한가지 일 그것을 구하리니 곧 내가 내 평생에 여호와의 집에 살면서 여호와의 아름다움을 바라보며 그의 성전에서 사모하는 그것이라" },
+            { ref: "시편 53:3", text: "각기 물러가 함께 더러운 자가 되고 선을 행하는 자 없으니 하나도 없도다" },
+            { ref: "요한복음 4:20", text: "우리 조상들은 이 산에서 예배하였는데 당신들의 말은 예배할 곳이 예루살렘에 있다 하더이다" },
+            { ref: "요한복음 4:19", text: "여자가 이르되 주여 내가 보니 선지자로소이다" },
+            { ref: "요한복음 4:13", text: "예수께서 대답하여 이르시되 이 물을 마시는 자마다 다시 목마르려니와" },
+            { ref: "요한복음 4:24", text: "하나님은 영이시니 예배하는 자가 신령과 진정으로 예배할찌니라" },
+            { ref: "창세기 4:12", text: "네가 밭을 갈아도 땅이 다시는 그 효력을 네게 주지 아니할 것이요 너는 땅에서 피하며 유리하는 자가 되리라" },
+            { ref: "창세기 4:9", text: "여호와께서 가인에게 이르시되 네 아우 아벨이 어디 있느냐 그가 이르되 내가 알지 못하나이다 내가 내 아우의 목자가 되었나이까" },
+            { ref: "창세기 1:26", text: "하나님이 이르시되 우리의 형상을 따라 우리의 모양대로 우리가 사람을 만들고" }
+        ];
+
+        /**
+         * Audio System
+         */
+        const AudioSys = {
+            ctx: null,
+            init: function () {
+                if (!this.ctx) {
+                    window.AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            },
+            playTone: function (freq, type, duration) {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + duration);
+            },
+            playClick: function () { this.playTone(600, 'sine', 0.1); },
+            playCorrect: function () {
+                this.playTone(800, 'sine', 0.1);
+                setTimeout(() => this.playTone(1200, 'sine', 0.2), 100);
+            },
+            playWin: function () {
+                [400, 500, 600, 800].forEach((f, i) => setTimeout(() => this.playTone(f, 'square', 0.2), i * 100));
+            },
+            playWolf: function () {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(100, this.ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(50, this.ctx.currentTime + 0.5);
+                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.5);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.5);
+            },
+            playHit: function () { this.playTone(150, 'square', 0.1); }
+        };
+
+        /**
+         * Game Logic
+         */
+        const game = {
+            level: 0,
+            score: 0,
+            timer: 60,
+            interval: null,
+            wolfInterval: null,
+            isPlaying: false,
+            wolfActive: false,
+            wolfHP: 100,
+            currentWords: [],
+            targetWords: [],
+
+            init: function () {
+                this.loadStorage();
+                document.getElementById('best-display').textContent = this.bestScore ? `Lv ${this.bestLevel} (${this.bestScore}점)` : "없음";
+            },
+
+            start: function () {
+                AudioSys.init();
+                this.level = 0;
+                this.score = 0;
+                this.startLevel();
+            },
+
+            resetGame: function () {
+                showScreen('start-screen');
+            },
+
+            startLevel: function () {
+                if (this.level >= VERSES.length) {
+                    this.showVictory();
+                    return;
+                }
+
+                this.isPlaying = true;
+                this.wolfActive = false;
+                this.timer = 60;
+                this.updateHUD();
+
+                // Setup UI
+                showScreen(null); // Clear screens
+                document.getElementById('wolf-overlay').classList.add('hidden');
+                document.getElementById('game-container').classList.remove('shake');
+
+                // Load Verse
+                const verse = VERSES[this.level];
+                document.getElementById('verse-reference').textContent = verse.ref;
+
+                // Prepare Words
+                this.targetWords = verse.text.split(' ');
+                this.currentWords = [...this.targetWords];
+                this.shuffle(this.currentWords);
+
+                this.renderWords();
+                this.resetPipes();
+
+                // Start Timer
+                clearInterval(this.interval);
+                this.interval = setInterval(() => this.tick(), 1000);
+
+                // Wolf Logic (Level 4+)
+                clearInterval(this.wolfInterval);
+                if (this.level >= 3) {
+                    this.scheduleWolf();
+                }
+            },
+
+            scheduleWolf: function () {
+                if (!this.isPlaying) return;
+                // Random time between 5s and 40s
+                const delay = (Math.random() * 35000) + 5000;
+                this.wolfInterval = setTimeout(() => {
+                    if (this.isPlaying && !this.wolfActive && this.timer > 5) {
+                        this.triggerWolf();
+                    }
+                }, delay);
+            },
+
+            triggerWolf: function () {
+                this.wolfActive = true;
+                this.wolfHP = 100;
+                document.getElementById('wolf-overlay').classList.remove('hidden');
+                document.getElementById('wolf-hp').style.width = '100%';
+                document.getElementById('game-container').classList.add('shake');
+                AudioSys.playWolf();
+            },
+
+            hitWolf: function () {
+                if (!this.wolfActive) return;
+                this.wolfHP -= 10;
+                AudioSys.playHit();
+                document.getElementById('wolf-hp').style.width = this.wolfHP + '%';
+
+                if (this.wolfHP <= 0) {
+                    this.defeatWolf();
+                }
+            },
+
+            defeatWolf: function () {
+                this.wolfActive = false;
+                document.getElementById('wolf-overlay').classList.add('hidden');
+                document.getElementById('game-container').classList.remove('shake');
+                AudioSys.playCorrect(); // Small success sound
+
+                // Reschedule wolf if enough time left? Maybe only once per level for balance
+                // To keep it simple: One wolf per level is usually enough, or re-schedule.
+                // Let's reschedule for harder levels (Lv 8+)
+                if (this.level >= 7) {
+                    this.scheduleWolf();
+                }
+            },
+
+            tick: function () {
+                if (this.wolfActive) {
+                    // Wolf pauses timer? User spec didn't strictly say, but usually overlay pauses interaction.
+                    // Let's NOT pause timer to keep tension, but make sure user can't play phrases.
+                    // Wolf overlay covers puzzle anyway.
+                }
+
+                this.timer--;
+                this.updateHUD();
+
+                if (this.timer <= 0) {
+                    this.endLevel(false);
+                }
+            },
+
+            updateHUD: function () {
+                document.getElementById('level-num').textContent = this.level + 1;
+                document.getElementById('time-display').textContent = this.timer;
+                document.getElementById('score-display').textContent = this.score;
+
+                // Time warning
+                const timerEl = document.getElementById('time-display');
+                if (this.timer <= 10) timerEl.style.color = '#f44336';
+                else timerEl.style.color = 'white';
+            },
+
+            shuffle: function (array) {
+                for (let i = array.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [array[i], array[j]] = [array[j], array[i]];
+                }
+            },
+
+            renderWords: function () {
+                const bank = document.getElementById('word-bank');
+                const ans = document.getElementById('answer-area');
+                bank.innerHTML = '';
+                ans.innerHTML = '';
+
+                // Render Answer Area (Placed words)
+                // We'll track placed words in a separate internal array or just DOM children?
+                // DOM children is easier for drag/drop visual simulation.
+
+                // Wait, better state management:
+                // We have `currentWords` which are shuffled in bank.
+                // We need `placedWords` array.
+
+                if (!this.placedWords) this.placedWords = [];
+
+                if (this.placedWords.length === 0 && ans.children.length === 0) {
+                    const placeHolder = document.createElement('span');
+                    placeHolder.style.color = '#aaa';
+                    placeHolder.style.width = '100%';
+                    placeHolder.style.textAlign = 'center';
+                    placeHolder.style.marginTop = '20px';
+                    placeHolder.textContent = '단어를 순서대로 터치하세요';
+                    placeHolder.id = 'placeholder';
+                    ans.appendChild(placeHolder);
+                }
+
+                this.placedWords.forEach((word, idx) => {
+                    const chip = this.createChip(word, true, idx);
+                    ans.appendChild(chip);
+                });
+
+                this.currentWords.forEach((word, idx) => {
+                    const chip = this.createChip(word, false, idx);
+                    bank.appendChild(chip);
+                });
+            },
+
+            createChip: function (word, isPlaced, index) {
+                const chip = document.createElement('div');
+                chip.className = 'word-chip';
+                chip.textContent = word;
+                chip.onclick = () => {
+                    if (this.wolfActive) return;
+                    AudioSys.playClick();
+                    if (isPlaced) {
+                        // Return to bank
+                        this.placedWords.splice(index, 1);
+                        this.currentWords.push(word);
+                    } else {
+                        // Move to answer
+                        this.currentWords.splice(index, 1);
+                        this.placedWords.push(word);
+                    }
+                    // Remove placeholder if exists
+                    const ph = document.getElementById('placeholder');
+                    if (ph) ph.remove();
+
+                    this.renderWords();
+                    this.checkAnswer();
+                };
+                return chip;
+            },
+
+            checkAnswer: function () {
+                const currentString = this.placedWords.join('');
+                const targetString = this.targetWords.join(''); // Just compare without spaces? 
+                // Or check array equality? 
+                // Bible verses often have spacing that matters, but user words are split by space.
+                // So joining current words with space should match target joined by space.
+
+                // Wait, 'targetWords' was split by space.
+                // "태초에 하나님이..." -> ["태초에", "하나님이"...]
+
+                if (this.placedWords.length === this.targetWords.length) {
+                    const isCorrect = this.placedWords.join(' ') === this.targetWords.join(' ');
+                    const ansArea = document.getElementById('answer-area');
+
+                    if (isCorrect) {
+                        ansArea.classList.add('correct');
+                        this.endLevel(true);
+                    } else {
+                        ansArea.classList.add('wrong');
+                        setTimeout(() => ansArea.classList.remove('wrong'), 500);
+                    }
+                }
+            },
+
+            resetPipes: function () {
+                this.placedWords = [];
+                const pipes = document.querySelectorAll('.pipe');
+                pipes.forEach(p => {
+                    p.classList.remove('fixed');
+                    p.classList.add('broken');
+                    p.style.transform = 'rotate(15deg)';
+                });
+                document.getElementById('answer-area').className = 'word-container';
+            },
+
+            fixPipesAnimation: function () {
+                const pipes = document.querySelectorAll('.pipe');
+                pipes.forEach((p, i) => {
+                    setTimeout(() => {
+                        p.classList.remove('broken');
+                        p.classList.add('fixed');
+                    }, i * 200);
+                });
+            },
+
+            endLevel: function (success) {
+                this.isPlaying = false;
+                clearInterval(this.interval);
+                clearTimeout(this.wolfInterval);
+
+                if (success) {
+                    AudioSys.playWin();
+                    this.fixPipesAnimation();
+
+                    const earned = Math.max(10, Math.ceil(this.timer * 10 / 6)); // Rough score calc
+                    this.score += earned;
+                    this.saveStorage();
+
+                    setTimeout(() => {
+                        document.getElementById('level-score').textContent = earned;
+                        showScreen('level-screen');
+                    }, 1000);
+                } else {
+                    AudioSys.playTone(100, 'sawtooth', 0.5); // Fail sound
+                    showScreen('game-over-screen');
+                }
+            },
+
+            nextLevel: function () {
+                this.level++;
+                this.startLevel();
+            },
+
+            retryLevel: function () {
+                this.startLevel();
+            },
+
+            showVictory: function () {
+                document.getElementById('final-score').textContent = "총점: " + this.score;
+                showScreen('victory-screen');
+            },
+
+            saveStorage: function () {
+                this.bestLevel = Math.max(this.level + 1, parseInt(localStorage.getItem('biblePipeLevel') || 0));
+                this.bestScore = Math.max(this.score, parseInt(localStorage.getItem('biblePipeScore') || 0));
+                localStorage.setItem('biblePipeLevel', this.bestLevel);
+                localStorage.setItem('biblePipeScore', this.bestScore);
+            },
+
+            loadStorage: function () {
+                this.bestLevel = parseInt(localStorage.getItem('biblePipeLevel') || 0);
+                this.bestScore = parseInt(localStorage.getItem('biblePipeScore') || 0);
+            }
+        };
+
+        function showScreen(id) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+            if (id) document.getElementById(id).classList.remove('hidden');
+        }
+
+        // Initial Setup
+        game.init();
+
+    </script>
+</body>
+
+</html>
